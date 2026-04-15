@@ -3,10 +3,10 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@9.0.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "build:cf": "cd pending-report-tool-v2 && tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
