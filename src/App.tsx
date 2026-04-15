@@ -194,7 +194,7 @@ export default function App() {
     if (!currentReport) return
     
     const { subject, body } = generateEmailContent(currentReport)
-    const mailtoLink = `mailto:lin.feng@ottoint.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
     
     window.location.href = mailtoLink
     
