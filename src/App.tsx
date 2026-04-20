@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
-import { generateEmail as generateEmailContent, extractPdfWithDoubao, analyzeReportWithAI } from './services/minimaxApi'
+import { generateEmail as generateEmailContent, extractPdfWithDoubao } from './services/minimaxApi'
 import { Upload, FileText, Mail, X, Save, Edit3, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 
 // PDF.js  worker 配置
@@ -66,11 +66,6 @@ export default function App() {
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractionError, setExtractionError] = useState<string | null>(null)
   
-  // AI 分析相关状态
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [currentPdfText, setCurrentPdfText] = useState<string>('')
-  
   // 编辑相关状态
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -93,10 +88,6 @@ export default function App() {
       for (const file of files) {
         // 1. 提取 PDF 文本
         const pdfText = await extractPdfText(file)
-        
-        // 保存 PDF 文本用于 AI 分析
-        setCurrentPdfText(pdfText)
-        setAiAnalysis(null) // 清空之前的分析
         
         // 2. 使用 AI API 提取信息
         const extracted = await extractPdfWithDoubao(pdfText)
@@ -190,6 +181,36 @@ export default function App() {
     setEditDefectValue(String(value))
   }
 
+  // 新增疵点记录
+  const addDefect = () => {
+    if (!currentReport) return
+    
+    const newDefect: DefectDetail = {
+      description: '新疵点描述',
+      count: 0,
+      rate: '0.0%'
+    }
+    
+    const updatedDefects = [...currentReport.defectDetails, newDefect]
+    const updated = { ...currentReport, defectDetails: updatedDefects }
+    setCurrentReport(updated)
+    const updatedHistory = history.map(item => item.id === currentReport.id ? updated : item)
+    setHistory(updatedHistory)
+    saveHistory(updatedHistory)
+  }
+
+  // 删除疵点记录
+  const deleteDefect = (index: number) => {
+    if (!currentReport) return
+    
+    const updatedDefects = currentReport.defectDetails.filter((_, i) => i !== index)
+    const updated = { ...currentReport, defectDetails: updatedDefects }
+    setCurrentReport(updated)
+    const updatedHistory = history.map(item => item.id === currentReport.id ? updated : item)
+    setHistory(updatedHistory)
+    saveHistory(updatedHistory)
+  }
+
   const handleGenerateEmail = () => {
     if (!currentReport) return
     
@@ -206,25 +227,6 @@ export default function App() {
     saveHistory(updatedHistory)
     setEmailStatus('success')
     setTimeout(() => setEmailStatus('idle'), 3000)
-  }
-
-  // AI 分析功能
-  const handleAIAnalysis = async () => {
-    if (!currentPdfText) {
-      alert('请先上传 PDF 报告')
-      return
-    }
-    
-    setIsAnalyzing(true)
-    try {
-      const analysis = await analyzeReportWithAI(currentPdfText)
-      setAiAnalysis(analysis)
-    } catch (error: any) {
-      console.error('AI 分析失败:', error)
-      alert('AI 分析失败: ' + error.message)
-    } finally {
-      setIsAnalyzing(false)
-    }
   }
 
   const selectReport = (report: ReportData) => {
@@ -439,24 +441,33 @@ export default function App() {
 
                 {/* 疵点详情 */}
                 <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 mb-6">
-                  <div className="flex items-center gap-4 mb-3">
-                    <span className="text-purple-400 font-medium">疵点详情</span>
-                    <span className="text-xs bg-slate-600 px-2 py-0.5 rounded">Total Inspection Qty: {currentReport.inspectionQty || 'N/A'}</span>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-4">
+                      <span className="text-purple-400 font-medium">疵点详情</span>
+                      <span className="text-xs bg-slate-600 px-2 py-0.5 rounded">Total Inspection Qty: {currentReport.inspectionQty || 'N/A'}</span>
+                    </div>
+                    <button
+                      onClick={addDefect}
+                      className="flex items-center gap-1 px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded text-xs transition-colors"
+                    >
+                      <span>+</span> 新增疵点
+                    </button>
                   </div>
                   
                   {currentReport.defectDetails && currentReport.defectDetails.length > 0 ? (
                     <div className="overflow-hidden rounded-lg border border-slate-600">
                       {/* 表头 */}
                       <div className="grid grid-cols-12 gap-2 bg-slate-700 px-3 py-2 text-xs font-medium text-slate-300">
-                        <div className="col-span-6">疵点描述</div>
-                        <div className="col-span-3 text-center">疵点数量</div>
+                        <div className="col-span-5">疵点描述</div>
+                        <div className="col-span-2 text-center">疵点数量</div>
                         <div className="col-span-3 text-center">疵点比例</div>
+                        <div className="col-span-2 text-center">操作</div>
                       </div>
                       {/* 数据行 */}
                       {currentReport.defectDetails.map((defect, index) => (
                         <div key={index} className="grid grid-cols-12 gap-2 px-3 py-2 text-sm border-t border-slate-600/50 bg-slate-800/50 items-center">
                           {/* 疵点描述 - 可编辑 */}
-                          <div className="col-span-6">
+                          <div className="col-span-5">
                             {editingDefectIndex === index && editingDefectField === 'description' ? (
                               <div className="flex items-center gap-1">
                                 <input
@@ -482,7 +493,7 @@ export default function App() {
                           </div>
                           
                           {/* 疵点数量 - 可编辑 */}
-                          <div className="col-span-3 text-center">
+                          <div className="col-span-2 text-center">
                             {editingDefectIndex === index && editingDefectField === 'count' ? (
                               <div className="flex items-center justify-center gap-1">
                                 <input
@@ -510,6 +521,16 @@ export default function App() {
                           <div className="col-span-3 text-center font-medium text-purple-400">
                             {defect.rate}
                           </div>
+                          
+                          {/* 删除操作 */}
+                          <div className="col-span-2 text-center">
+                            <button
+                              onClick={() => deleteDefect(index)}
+                              className="p-1 bg-red-600/80 hover:bg-red-600 rounded text-xs transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -517,35 +538,6 @@ export default function App() {
                     <div className="text-slate-400 text-sm">暂无疵点信息</div>
                   )}
                 </div>
-
-                {/* AI 分析按钮 */}
-                <button
-                  onClick={handleAIAnalysis}
-                  disabled={isAnalyzing}
-                  className="w-full py-3 bg-gradient-to-r from-green-600 to-teal-600 rounded-xl font-medium flex items-center justify-center gap-2 hover:from-green-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isAnalyzing ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <FileText className="w-5 h-5" />
-                  )}
-                  {isAnalyzing ? 'AI 分析中...' : 'AI 分析报告'}
-                </button>
-
-                {/* AI 分析结果 */}
-                {aiAnalysis && (
-                  <div className="mt-4 p-4 bg-slate-700/50 rounded-xl border border-slate-600">
-                    <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-green-400" />
-                      AI 分析报告
-                    </h3>
-                    <div className="prose prose-invert prose-sm max-w-none">
-                      <div className="whitespace-pre-wrap text-slate-300 text-sm leading-relaxed">
-                        {aiAnalysis}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* 生成邮件按钮 */}
                 <button
