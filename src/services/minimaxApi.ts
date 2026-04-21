@@ -281,7 +281,13 @@ export async function extractPdfWithDoubao(pdfText: string): Promise<ExtractedRe
 export function generateEmail(report: any): { to: string; subject: string; body: string } {
   const subject = `Pending report- ${report.customer || ''} / ${report.vendor || ''}-${report.styleNo || ''}/${report.poNo || ''}/${report.itemNo || ''}`
 
-  const body = `Customer/Vendor: ${report.customer || ''} / ${report.vendor || ''}
+  const defectList = report.defectDetails && report.defectDetails.length > 0
+    ? report.defectDetails.map((d: any, index: number) => `${index + 1}.${d.description}: ${d.count}个 (${d.rate})`).join('\n')
+    : ''
+
+  const body = `Dear      ,
+
+Re, Customer/Vendor: ${report.customer || ''} / ${report.vendor || ''}
 
 Style#: ${report.styleNo || ''}
 PO#: ${report.poNo || ''}
@@ -290,13 +296,18 @@ Delivered Qty: ${report.deliveredQty || ''}
 Expected Ship Date: ${report.shipDate || ''}
 Total Inspection Qty: ${report.inspectionQty || ''}
 
-PENDING 问题:
-${report.pendingIssue || '无'}
+---
 
-疵点详情:
-${report.defectDetails && report.defectDetails.length > 0 
-  ? report.defectDetails.map((d: any) => `- ${d.description}: ${d.count}个 (${d.rate})`).join('\n')
-  : '无'}`
+We found the below mentioned issues during AQL inspection.
+
+${defectList}
+
+I will pass you demos, sealing sample & qc file, please kindly check adn advise your comments.
+Once all issues are confirmed ok, the goods can be released directly, thanks.
+
+
+Best regards,
+Lin Feng`
 
   return {
     // to: 'lin.feng@ottoint.com',
